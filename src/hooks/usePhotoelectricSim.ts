@@ -10,6 +10,24 @@ import { drawFrame, ElectronParticle } from '@/lib/photoelectric-canvas';
 
 let eid = 0;
 
+function syncCanvasResolution(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
+  const dpr = window.devicePixelRatio || 1;
+  const renderScale = Math.min(dpr * 2, 6);
+  const rect = canvas.getBoundingClientRect();
+  const displayWidth = rect.width || CONFIG.canvas.w;
+  const displayHeight = rect.height || CONFIG.canvas.h;
+  const nextWidth = Math.max(1, Math.round(displayWidth * renderScale));
+  const nextHeight = Math.max(1, Math.round(displayHeight * renderScale));
+
+  if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
+
+  ctx.setTransform(nextWidth / CONFIG.canvas.w, 0, 0, nextHeight / CONFIG.canvas.h, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+}
+
 export function usePhotoelectricSim() {
   const [wavelength, setWavelength]           = useState<number>(CONFIG.wavelength.default);
   const [intensity, setIntensity]             = useState<number>(CONFIG.intensity.default);
@@ -42,19 +60,29 @@ export function usePhotoelectricSim() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const canvasEl = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const ctx2d = ctx;
 
     const cathodeRight = CONFIG.cathode.x + CONFIG.cathode.w;
     const gapWidth     = CONFIG.anode.x - cathodeRight;
+    syncCanvasResolution(canvasEl, ctx2d);
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => syncCanvasResolution(canvasEl, ctx2d))
+      : null;
+
+    resizeObserver?.observe(canvasEl);
 
     function tick() {
       tickRef.current++;
+      syncCanvasResolution(canvasEl, ctx2d);
 
       if (!playingRef.current) {
         const m  = METALS[metalKeyRef.current];
         const ke = maxKineticEnergy(wlRef.current, m.workFunction);
-        drawFrame(ctx!, wlRef.current, intRef.current, vRef.current, m, electronsRef.current, ke, tickRef.current);
+        drawFrame(ctx2d, wlRef.current, intRef.current, vRef.current, m, electronsRef.current, ke, tickRef.current);
         animRef.current = requestAnimationFrame(tick);
         return;
       }
@@ -109,12 +137,15 @@ export function usePhotoelectricSim() {
         return el.x < CONFIG.anode.x;
       });
 
-      drawFrame(ctx!, wl, int, v, m, electronsRef.current, ke, tickRef.current);
+      drawFrame(ctx2d, wl, int, v, m, electronsRef.current, ke, tickRef.current);
       animRef.current = requestAnimationFrame(tick);
     }
 
     animRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animRef.current);
+    return () => {
+      cancelAnimationFrame(animRef.current);
+      resizeObserver?.disconnect();
+    };
   }, []);
 
   const reset = useCallback(() => {

@@ -132,6 +132,24 @@ interface ElectronParticle {
 
 let eid = 0;
 
+function syncCanvasResolution(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
+  const dpr = window.devicePixelRatio || 1;
+  const renderScale = Math.min(dpr * 2, 6);
+  const rect = canvas.getBoundingClientRect();
+  const displayWidth = rect.width || CONFIG.canvas.w;
+  const displayHeight = rect.height || CONFIG.canvas.h;
+  const nextWidth = Math.max(1, Math.round(displayWidth * renderScale));
+  const nextHeight = Math.max(1, Math.round(displayHeight * renderScale));
+
+  if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
+
+  ctx.setTransform(nextWidth / CONFIG.canvas.w, 0, 0, nextHeight / CONFIG.canvas.h, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+}
+
 function drawFrame(
   ctx: CanvasRenderingContext2D,
   wavelength: number,
@@ -289,9 +307,9 @@ function drawFrame(
   ctx.textAlign = 'center';
   ctx.font = '10px sans-serif';
   ctx.fillStyle = 'rgba(130,200,255,0.65)';
-  ctx.fillText('cathode (−)', cathodeMidX, TY - 8);
+  ctx.fillText('catod (−)', cathodeMidX, TY - 8);
   ctx.fillStyle = 'rgba(200,160,100,0.65)';
-  ctx.fillText('anode (+)', anodeMidX, TY - 8);
+  ctx.fillText('anod (+)', anodeMidX, TY - 8);
 
   // ── External circuit wires (going down from tube) ─────────────
   const wireY = TY + TH;
@@ -456,11 +474,11 @@ function Graph({ type, wavelength, intensity, voltage, metal, keMax, gw = 400, g
         )}
         {/* Axis labels */}
         <text x={PAD.left + plotW / 2} y={H - 6} textAnchor="middle" fill="#94a3b8" fontSize={11}>
-          Voltage (V)
+          Tensiune (V)
         </text>
         <text x={13} y={PAD.top + plotH / 2} textAnchor="middle" fill="#94a3b8" fontSize={11}
           transform={`rotate(-90,13,${PAD.top + plotH / 2})`}>
-          Current (mA)
+          Curent (mA)
         </text>
         {/* Curve */}
         <path d={pathD} stroke="#60a5fa" strokeWidth={2.2} fill="none" />
@@ -515,11 +533,11 @@ function Graph({ type, wavelength, intensity, voltage, metal, keMax, gw = 400, g
           </g>
         ))}
         <text x={PAD.left + plotW / 2} y={H - 6} textAnchor="middle" fill="#94a3b8" fontSize={11}>
-          Light Intensity (%)
+          Intensitate (%)
         </text>
         <text x={13} y={PAD.top + plotH / 2} textAnchor="middle" fill="#94a3b8" fontSize={11}
           transform={`rotate(-90,13,${PAD.top + plotH / 2})`}>
-          Current (mA)
+          Curent (mA)
         </text>
         <path d={pathD} stroke="#34d399" strokeWidth={2.2} fill="none" />
         <circle cx={dotX} cy={dotY} r={5.5} fill="#fbbf24" stroke="#080c18" strokeWidth={1.5} />
@@ -599,7 +617,7 @@ function Graph({ type, wavelength, intensity, voltage, metal, keMax, gw = 400, g
       )}
       {/* Axis labels */}
       <text x={PAD.left + plotW / 2} y={H - 5} textAnchor="middle" fill="#94a3b8" fontSize={11}>
-        Frequency (×10¹⁴ Hz)
+        Frecvență (×10¹⁴ Hz)
       </text>
       <text x={13} y={PAD.top + plotH / 2} textAnchor="middle" fill="#94a3b8" fontSize={11}
         transform={`rotate(-90,13,${PAD.top + plotH / 2})`}>
@@ -635,8 +653,8 @@ function Slider({ label, value, min, max, step, onChange, display, accentColor =
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-sm font-medium text-slate-300">{label}</span>
-        <span className="font-mono text-sm font-semibold text-slate-200">{display ?? value}</span>
+        <span className="text-base font-medium text-slate-300">{label}</span>
+        <span className="font-mono text-base font-semibold text-slate-200">{display ?? value}</span>
       </div>
       <input
         type="range" min={min} max={max} step={step} value={value}
@@ -697,20 +715,30 @@ export default function PhotoelectricSimulation() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const canvasEl = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const ctx2d = ctx;
 
     const cathodeRight = CONFIG.cathode.x + CONFIG.cathode.w;
     const gapWidth     = CONFIG.anode.x - cathodeRight;
+    syncCanvasResolution(canvasEl, ctx2d);
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => syncCanvasResolution(canvasEl, ctx2d))
+      : null;
+
+    resizeObserver?.observe(canvasEl);
 
     function tick() {
       tickRef.current++;
+      syncCanvasResolution(canvasEl, ctx2d);
 
       if (!playingRef.current) {
         // Still draw (static frame) but don't spawn/move
         const m = METALS[metalKeyRef.current];
         const ke = maxKineticEnergy(wlRef.current, m.workFunction);
-        drawFrame(ctx!, wlRef.current, intRef.current, vRef.current, m, electronsRef.current, ke, tickRef.current);
+        drawFrame(ctx2d, wlRef.current, intRef.current, vRef.current, m, electronsRef.current, ke, tickRef.current);
         animRef.current = requestAnimationFrame(tick);
         return;
       }
@@ -778,12 +806,15 @@ export default function PhotoelectricSimulation() {
         return el.x < CONFIG.anode.x;
       });
 
-      drawFrame(ctx!, wl, int, v, m, electronsRef.current, ke, tickRef.current);
+      drawFrame(ctx2d, wl, int, v, m, electronsRef.current, ke, tickRef.current);
       animRef.current = requestAnimationFrame(tick);
     }
 
     animRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animRef.current);
+    return () => {
+      cancelAnimationFrame(animRef.current);
+      resizeObserver?.disconnect();
+    };
   }, []);
 
   // ── Helpers ─────────────────────────────────────────────────
@@ -830,25 +861,25 @@ export default function PhotoelectricSimulation() {
       {/* ── Header ──────────────────────────────────────────── */}
       <header className="flex items-center justify-between px-4 py-2 border-b border-slate-800/70 bg-[#0a0f1e] shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-md flex items-center justify-center text-sm"
+          <div className="w-6 h-6 rounded-md flex items-center justify-center text-base"
             style={{ background: `${lightColor}25`, border: `1px solid ${lightColor}50` }}>⚡</div>
-          <h1 className="font-bold text-slate-100 text-sm tracking-wide">Photoelectric Effect</h1>
+          <h1 className="font-bold text-slate-100 text-base tracking-wide">Efectul Fotoelectric</h1>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 bg-slate-900 rounded px-2.5 py-1 border border-slate-800">
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider">Current</span>
-            <span className="font-mono font-bold text-xs" style={{ color: current > 0 ? '#4ade80' : '#475569' }}>
+            <span className="text-xs text-slate-500 uppercase tracking-wider">Curent</span>
+            <span className="font-mono font-bold text-sm" style={{ color: current > 0 ? '#4ade80' : '#475569' }}>
               {(current * 1000).toFixed(3)} mA
             </span>
           </div>
           <button onClick={() => setIsPlaying(p => !p)}
-            className="px-2.5 py-1 rounded text-xs font-medium border transition-all"
+            className="px-2.5 py-1 rounded text-sm font-medium border transition-all"
             style={{ background: isPlaying ? '#1e3a5f' : '#1a2b1a', borderColor: isPlaying ? '#3b82f6' : '#22c55e', color: isPlaying ? '#93c5fd' : '#86efac' }}>
-            {isPlaying ? '⏸ Pause' : '▶ Play'}
+            {isPlaying ? '⏸ Pauză' : '▶ Redare'}
           </button>
           <button onClick={reset}
-            className="px-2.5 py-1 rounded text-xs font-medium border border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600 transition-all">
-            Reset
+            className="px-2.5 py-1 rounded text-sm font-medium border border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600 transition-all">
+            Resetare
           </button>
         </div>
       </header>
@@ -865,11 +896,11 @@ export default function PhotoelectricSimulation() {
             {/* Wavelength */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] text-slate-400 font-medium">Wavelength</span>
+                <span className="text-sm text-slate-400 font-medium">Lungime de undă</span>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: lightColor, boxShadow: `0 0 5px ${lightColor}` }} />
-                  <span className="font-mono text-[11px] font-bold text-slate-200">{wavelength} nm</span>
-                  <span className="text-[10px] text-slate-500">{lightLabel}</span>
+                  <span className="font-mono text-sm font-bold text-slate-200">{wavelength} nm</span>
+                  <span className="text-xs text-slate-500">{lightLabel}</span>
                 </div>
               </div>
               {/* Spectrum bar — acts as the only slider via invisible overlay */}
@@ -883,7 +914,7 @@ export default function PhotoelectricSimulation() {
                     onChange={e => setWavelength(Number(e.target.value))}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                 </div>
-                <div className="flex justify-between text-[9px] text-slate-600 mt-0.5">
+                <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
                   <span>200 nm</span><span>700 nm</span>
                 </div>
               </div>
@@ -892,8 +923,8 @@ export default function PhotoelectricSimulation() {
             {/* Intensity */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-slate-400 font-medium">Intensity</span>
-                <span className="font-mono text-[11px] font-bold text-yellow-400">{intensity}%</span>
+                <span className="text-sm text-slate-400 font-medium">Intensitate</span>
+                <span className="font-mono text-sm font-bold text-yellow-400">{intensity}%</span>
               </div>
               <input type="range" min={CONFIG.intensity.min} max={CONFIG.intensity.max}
                 step={CONFIG.intensity.step} value={intensity}
@@ -905,12 +936,12 @@ export default function PhotoelectricSimulation() {
             {/* Voltage */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] text-slate-400 font-medium">Voltage</span>
+                <span className="text-sm text-slate-400 font-medium">Tensiune</span>
                 <div className="flex items-center gap-1.5">
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${voltage > 0 ? 'bg-green-900/40 text-green-400' : voltage < 0 ? 'bg-red-900/40 text-red-400' : 'bg-slate-800 text-slate-500'}`}>
-                    {voltage > 0 ? 'accel' : voltage < 0 ? 'decel' : 'off'}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${voltage > 0 ? 'bg-green-900/40 text-green-400' : voltage < 0 ? 'bg-red-900/40 text-red-400' : 'bg-slate-800 text-slate-500'}`}>
+                    {voltage > 0 ? 'accel' : voltage < 0 ? 'frână' : 'oprit'}
                   </span>
-                  <span className="font-mono text-[11px] font-bold text-yellow-400">{voltage >= 0 ? '+' : ''}{voltage.toFixed(1)} V</span>
+                  <span className="font-mono text-sm font-bold text-yellow-400">{voltage >= 0 ? '+' : ''}{voltage.toFixed(1)} V</span>
                 </div>
               </div>
               <input type="range" min={CONFIG.voltage.min} max={CONFIG.voltage.max}
@@ -918,7 +949,7 @@ export default function PhotoelectricSimulation() {
                 onChange={e => setVoltage(Number(e.target.value))}
                 className="w-full h-1 rounded-full appearance-none cursor-pointer"
                 style={{ background: voltageTrack, accentColor: voltage >= 0 ? '#fbbf24' : '#ef4444' }} />
-              <div className="flex justify-between text-[9px] text-slate-600 mt-0.5">
+              <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
                 <span>{CONFIG.voltage.min} V</span><span>0</span><span>+{CONFIG.voltage.max} V</span>
               </div>
             </div>
@@ -936,54 +967,54 @@ export default function PhotoelectricSimulation() {
 
           {/* Metal selector */}
           <div className="bg-slate-900/50 rounded-lg border border-slate-800/60 p-2.5">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1.5">Target Metal</div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1.5">Metal Țintă</div>
             <div className="relative">
               <select value={metalKey} onChange={e => setMetalKey(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700/80 rounded px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none cursor-pointer">
+                className="w-full bg-slate-800 border border-slate-700/80 rounded px-2.5 py-1.5 text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none cursor-pointer">
                 {Object.entries(METALS).map(([k, m]) => (
                   <option key={k} value={k}>{m.name} ({m.symbol}) — φ = {m.workFunction} eV</option>
                 ))}
               </select>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-xs">▾</div>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-sm">▾</div>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1 h-1 rounded-full bg-slate-800 overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-300"
                   style={{ width: `${(metal.workFunction / 7) * 100}%`, background: metal.color }} />
               </div>
-              <span className="font-mono text-[10px] font-bold shrink-0" style={{ color: metal.color }}>φ = {metal.workFunction} eV</span>
+              <span className="font-mono text-xs font-bold shrink-0" style={{ color: metal.color }}>φ = {metal.workFunction} eV</span>
             </div>
           </div>
 
           {/* Physics values */}
           <div className="bg-slate-900/50 rounded-lg border border-slate-800/60 p-2.5">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-2">Physics</div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2">Fizică</div>
             <div className="space-y-1.5">
               {([
-                ['Photon energy',   `${photonE.toFixed(3)} eV`,                                  '#60a5fa',  null],
-                ['Work fn φ',       `${metal.workFunction.toFixed(2)} eV`,                        null,       metal.color],
-                ['KE max',          keMax > 0 ? `${keMax.toFixed(3)} eV` : 'No emission',         keMax > 0 ? '#4ade80' : '#f87171', null],
-                ['Stop voltage',    stopV > 0 ? `−${stopV.toFixed(2)} V` : '—',                   '#c084fc',  null],
-                ['Threshold λ',     `${(HC_EV_NM / metal.workFunction).toFixed(0)} nm`,           '#fb923c',  null],
+                ['Energie foton',   `${photonE.toFixed(3)} eV`,                                  '#60a5fa',  null],
+                ['Lucru mecanic φ', `${metal.workFunction.toFixed(2)} eV`,                        null,       metal.color],
+                ['EC max',          keMax > 0 ? `${keMax.toFixed(3)} eV` : 'Fără emisie',         keMax > 0 ? '#4ade80' : '#f87171', null],
+                ['Tensiune stopare',stopV > 0 ? `−${stopV.toFixed(2)} V` : '—',                   '#c084fc',  null],
+                ['λ prag',          `${(HC_EV_NM / metal.workFunction).toFixed(0)} nm`,           '#fb923c',  null],
               ] as [string, string, string | null, string | null][]).map(([label, value, color, custom]) => (
                 <div key={label} className="flex items-center justify-between">
-                  <span className="text-[10px] text-slate-500">{label}</span>
-                  <span className="font-mono text-[10px] font-bold" style={{ color: custom ?? color ?? '#94a3b8' }}>{value}</span>
+                  <span className="text-xs text-slate-500">{label}</span>
+                  <span className="font-mono text-xs font-bold" style={{ color: custom ?? color ?? '#94a3b8' }}>{value}</span>
                 </div>
               ))}
             </div>
 
             {/* Status */}
-            <div className={`mt-2 px-2 py-1 rounded text-[10px] font-medium ${
+            <div className={`mt-2 px-2 py-1 rounded text-xs font-medium ${
               !isEmitting && intensity > 0 && keMax <= 0 ? 'bg-red-950/50 text-red-400 border border-red-900/40' :
               isEmitting && isStopped ? 'bg-amber-950/50 text-amber-400 border border-amber-900/40' :
               isEmitting ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-900/40' :
               'bg-slate-800/50 text-slate-500 border border-slate-700/40'
             }`}>
-              {!isEmitting && intensity > 0 && keMax <= 0 ? `E_photon < φ — no emission` :
+              {!isEmitting && intensity > 0 && keMax <= 0 ? `E_foton < φ — fără emisie` :
                isEmitting && isStopped ? `|V| > V_stop — I = 0` :
-               isEmitting ? 'Photoelectric effect active' :
-               'Set intensity > 0'}
+               isEmitting ? 'Efect fotoelectric activ' :
+               'Setează intensitatea > 0'}
             </div>
           </div>
 
@@ -991,7 +1022,7 @@ export default function PhotoelectricSimulation() {
           <label className="bg-slate-900/50 rounded-lg border border-slate-800/60 px-2.5 py-2 flex items-center gap-2 cursor-pointer hover:bg-slate-800/40 transition-colors">
             <input type="checkbox" checked={showHighestOnly} onChange={e => setShowHighestOnly(e.target.checked)}
               className="w-3.5 h-3.5 rounded accent-blue-500 cursor-pointer shrink-0" />
-            <span className="text-[11px] text-slate-300">Highest energy electrons only</span>
+            <span className="text-sm text-slate-300">Doar electronii cu energie maximă</span>
           </label>
 
           {/* Graph */}
@@ -1000,7 +1031,7 @@ export default function PhotoelectricSimulation() {
             <div className="flex gap-1 mb-2">
               {graphTabs.map(([g, label, col]) => (
                 <button key={g} onClick={() => setActiveGraph(g)}
-                  className="flex-1 text-[10px] py-1 rounded font-semibold transition-all"
+                  className="flex-1 text-xs py-1 rounded font-semibold transition-all"
                   style={{
                     background: activeGraph === g ? `${col}20` : 'transparent',
                     color: activeGraph === g ? col : '#64748b',
@@ -1013,11 +1044,11 @@ export default function PhotoelectricSimulation() {
 
             {/* Graph title + hint */}
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[9px] text-slate-500">
+              <span className="text-[10px] text-slate-500">
                 {activeGraph === 'current-voltage' && stopV > 0 ? `V_stop = −${stopV.toFixed(2)} V` :
                  activeGraph === 'energy-frequency' ? `f₀ = ${(metal.workFunction / PLANCK_EV / 1e14).toFixed(1)}×10¹⁴ Hz` : ''}
               </span>
-              <span className="text-[9px] text-yellow-600">● current state</span>
+              <span className="text-[10px] text-yellow-600">● starea curentă</span>
             </div>
 
             {/* SVG graph — fills remaining space */}

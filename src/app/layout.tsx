@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Photoelectric Effect Simulation",
-  description: "Interactive simulation of the photoelectric effect — adjust wavelength, intensity, voltage, and metal to explore Einstein's photoelectric theory.",
+  title: "Simulare Efect Fotoelectric",
+  description: "Simulare interactivă a efectului fotoelectric — ajustează lungimea de undă, intensitatea, tensiunea și metalul pentru a explora teoria fotoelectrică a lui Einstein.",
 };
 
 export default function RootLayout({

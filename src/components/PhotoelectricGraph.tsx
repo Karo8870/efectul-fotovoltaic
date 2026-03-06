@@ -101,9 +101,9 @@ export function PhotoelectricGraph({
             </text>
           </g>
         )}
-        <text x={PAD.left + plotW / 2} y={H - 6} textAnchor="middle" fill={labelColor} fontSize={11}>Voltage (V)</text>
+        <text x={PAD.left + plotW / 2} y={H - 6} textAnchor="middle" fill={labelColor} fontSize={11}>Tensiune (V)</text>
         <text x={13} y={PAD.top + plotH / 2} textAnchor="middle" fill={labelColor} fontSize={11}
-          transform={`rotate(-90,13,${PAD.top + plotH / 2})`}>Current (mA)</text>
+          transform={`rotate(-90,13,${PAD.top + plotH / 2})`}>Curent (mA)</text>
         <path d={pathD} stroke={curve} strokeWidth={2.2} fill="none" />
         <circle cx={dotX} cy={dotY} r={5.5} fill={dotColor} stroke="#080c18" strokeWidth={1.5} />
       </svg>
@@ -149,9 +149,9 @@ export function PhotoelectricGraph({
             <text x={mapX(v, 0, 100)} y={PAD.top + plotH + 13} textAnchor="middle" fill={tickColor} fontSize={9}>{v}%</text>
           </g>
         ))}
-        <text x={PAD.left + plotW / 2} y={H - 6} textAnchor="middle" fill={labelColor} fontSize={11}>Light Intensity (%)</text>
+        <text x={PAD.left + plotW / 2} y={H - 6} textAnchor="middle" fill={labelColor} fontSize={11}>Intensitate (%)</text>
         <text x={13} y={PAD.top + plotH / 2} textAnchor="middle" fill={labelColor} fontSize={11}
-          transform={`rotate(-90,13,${PAD.top + plotH / 2})`}>Current (mA)</text>
+          transform={`rotate(-90,13,${PAD.top + plotH / 2})`}>Curent (mA)</text>
         <path d={pathD} stroke={curve} strokeWidth={2.2} fill="none" />
         <circle cx={dotX} cy={dotY} r={5.5} fill={dotColor} stroke="#080c18" strokeWidth={1.5} />
       </svg>
@@ -215,7 +215,7 @@ export function PhotoelectricGraph({
         </g>
       )}
       <text x={PAD.left + plotW / 2} y={H - 5} textAnchor="middle" fill={labelColor} fontSize={11}>
-        Frequency (×10¹⁴ Hz)
+        Frecvență (×10¹⁴ Hz)
       </text>
       <text x={13} y={PAD.top + plotH / 2} textAnchor="middle" fill={labelColor} fontSize={11}
         transform={`rotate(-90,13,${PAD.top + plotH / 2})`}>

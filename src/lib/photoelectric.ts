@@ -12,14 +12,14 @@ export interface Metal {
 }
 
 export const METALS: Record<string, Metal> = {
-  sodium:    { name: 'Sodium',    symbol: 'Na', workFunction: 2.36, color: '#E8C060' },
-  potassium: { name: 'Potassium', symbol: 'K',  workFunction: 2.30, color: '#C0A0F0' },
-  calcium:   { name: 'Calcium',   symbol: 'Ca', workFunction: 2.90, color: '#98AACC' },
+  sodium:    { name: 'Sodiu',     symbol: 'Na', workFunction: 2.36, color: '#E8C060' },
+  potassium: { name: 'Potasiu',   symbol: 'K',  workFunction: 2.30, color: '#C0A0F0' },
+  calcium:   { name: 'Calciu',    symbol: 'Ca', workFunction: 2.90, color: '#98AACC' },
   zinc:      { name: 'Zinc',      symbol: 'Zn', workFunction: 4.30, color: '#78C8C0' },
-  aluminum:  { name: 'Aluminum',  symbol: 'Al', workFunction: 4.08, color: '#909090' },
-  copper:    { name: 'Copper',    symbol: 'Cu', workFunction: 4.70, color: '#C87533' },
-  gold:      { name: 'Gold',      symbol: 'Au', workFunction: 5.10, color: '#FFD700' },
-  platinum:  { name: 'Platinum',  symbol: 'Pt', workFunction: 6.35, color: '#D8D8D8' },
+  aluminum:  { name: 'Aluminiu',  symbol: 'Al', workFunction: 4.08, color: '#909090' },
+  copper:    { name: 'Cupru',     symbol: 'Cu', workFunction: 4.70, color: '#C87533' },
+  gold:      { name: 'Aur',       symbol: 'Au', workFunction: 5.10, color: '#FFD700' },
+  platinum:  { name: 'Platină',   symbol: 'Pt', workFunction: 6.35, color: '#D8D8D8' },
 };
 
 export const CONFIG = {
@@ -79,13 +79,25 @@ export function wavelengthToCSS(nm: number): string {
   return wavelengthToRGBA(nm, 1);
 }
 
+export function buildSpectrumGradient(minNm: number, maxNm: number, steps = 64): string {
+  const stops: string[] = [];
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const wavelength = minNm + (maxNm - minNm) * t;
+    stops.push(`${wavelengthToCSS(wavelength)} ${(t * 100).toFixed(2)}%`);
+  }
+
+  return `linear-gradient(90deg, ${stops.join(', ')})`;
+}
+
 export function getLightLabel(wavelength: number): string {
   if (wavelength < 380) return 'UV';
   if (wavelength < 440) return 'Violet';
-  if (wavelength < 490) return 'Blue';
-  if (wavelength < 560) return 'Green';
-  if (wavelength < 590) return 'Yellow';
-  if (wavelength < 625) return 'Orange';
-  if (wavelength <= 700) return 'Red';
+  if (wavelength < 490) return 'Albastru';
+  if (wavelength < 560) return 'Verde';
+  if (wavelength < 590) return 'Galben';
+  if (wavelength < 625) return 'Portocaliu';
+  if (wavelength <= 700) return 'Roșu';
   return 'IR';
 }
